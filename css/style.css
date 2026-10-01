@@ -65,6 +65,7 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 5px; background: r
 #codeInput { text-transform: uppercase; letter-spacing: 3px; }
 .online-row .btn { margin: 0; white-space: nowrap; }
 .btn:disabled { opacity: 0.5; cursor: wait; }
+#reopenBtn { margin: 6px auto; }
 #netStatus { min-height: 18px; font-size: 13px; color: #ffd76a; }
 #pauseRoom { font-size: 14px; color: #8fe7ff; margin-bottom: 6px; }
 
