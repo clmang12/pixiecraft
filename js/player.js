@@ -97,9 +97,10 @@
 
       let fx = 0, fz = 0;
       if (k.KeyW) fz -= 1; if (k.KeyS) fz += 1; if (k.KeyA) fx -= 1; if (k.KeyD) fx += 1;
+      if (g.touchMove) { fx += g.touchMove.x; fz += g.touchMove.y; }   // on-screen joystick (analog)
       const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
       let wx = fx * c + fz * s, wz = -fx * s + fz * c;
-      const len = Math.hypot(wx, wz); if (len > 0) { wx /= len; wz /= len; }
+      const len = Math.hypot(wx, wz); if (len > 1) { wx /= len; wz /= len; }
 
       const fl = Math.floor;
       this.inWater = w.getBlock(fl(p.x), fl(p.y + 0.3), fl(p.z)) === B.WATER;
