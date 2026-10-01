@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>PixieCraft</title>
-  <link rel="stylesheet" href="css/style.css?v=17">
+  <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
   <div id="game"></div>
@@ -78,6 +78,13 @@
         <div class="load-track"><div id="loadFill"></div></div>
         <div id="loadText"></div>
       </div>
+      <div class="touch-help">
+        <div>👆 Left thumb: move · right thumb: drag to look</div>
+        <div>⛏ break / attack / cast (hold) · 🧱 place / use</div>
+        <div>⤒ jump — double-tap to fly in Creative · ⤓ go down / dive</div>
+        <div>🎒 satchel &amp; crafting · ✨ light orb · 🪽 pixie glide · tap a hotbar slot to pick it</div>
+        <div>Turn your device sideways for the best view.</div>
+      </div>
       <div class="controls">
         <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look</div>
         <div><kbd>Space</kbd> jump · <kbd>Space×2</kbd> fly (creative)</div>
@@ -123,7 +130,7 @@
         <h2>✦ Magic Workbench</h2>
         <div id="recipes"></div>
       </div>
-      <div class="hint">Press <kbd>E</kbd> or <kbd>Esc</kbd> to close</div>
+      <div class="hint"><span class="kb-only">Press <kbd>E</kbd> or <kbd>Esc</kbd> to close · </span><button id="invClose" class="btn">Close</button></div>
     </div>
   </div>
   <div id="heldItem"></div>
@@ -139,28 +146,29 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="js/noise.js?v=17"></script>
-  <script src="js/blocks.js?v=17"></script>
-  <script src="js/world.js?v=17"></script>
-  <script src="js/castle.js?v=17"></script>
-  <script src="js/player.js?v=17"></script>
-  <script src="js/particles.js?v=17"></script>
-  <script src="js/sky.js?v=17"></script>
-  <script src="js/mobs.js?v=17"></script>
-  <script src="js/enemies.js?v=17"></script>
-  <script src="js/bosses.js?v=17"></script>
-  <script src="js/treemonster.js?v=17"></script>
-  <script src="js/cars.js?v=17"></script>
-  <script src="js/snowpeaks.js?v=17"></script>
-  <script src="js/cove.js?v=17"></script>
-  <script src="js/biomes.js?v=17"></script>
-  <script src="js/fireworks.js?v=17"></script>
-  <script src="js/spells.js?v=17"></script>
-  <script src="js/sfx.js?v=17"></script>
-  <script src="js/music.js?v=17"></script>
-  <script src="js/inventory.js?v=17"></script>
-  <script src="js/ui.js?v=17"></script>
-  <script src="js/net.js?v=17"></script>
-  <script src="js/main.js?v=17"></script>
+  <script src="js/noise.js?v=19"></script>
+  <script src="js/blocks.js?v=19"></script>
+  <script src="js/world.js?v=19"></script>
+  <script src="js/castle.js?v=19"></script>
+  <script src="js/player.js?v=19"></script>
+  <script src="js/particles.js?v=19"></script>
+  <script src="js/sky.js?v=19"></script>
+  <script src="js/mobs.js?v=19"></script>
+  <script src="js/enemies.js?v=19"></script>
+  <script src="js/bosses.js?v=19"></script>
+  <script src="js/treemonster.js?v=19"></script>
+  <script src="js/cars.js?v=19"></script>
+  <script src="js/snowpeaks.js?v=19"></script>
+  <script src="js/cove.js?v=19"></script>
+  <script src="js/biomes.js?v=19"></script>
+  <script src="js/fireworks.js?v=19"></script>
+  <script src="js/spells.js?v=19"></script>
+  <script src="js/sfx.js?v=19"></script>
+  <script src="js/music.js?v=19"></script>
+  <script src="js/inventory.js?v=19"></script>
+  <script src="js/ui.js?v=19"></script>
+  <script src="js/touch.js?v=19"></script>
+  <script src="js/net.js?v=19"></script>
+  <script src="js/main.js?v=19"></script>
 </body>
 </html>

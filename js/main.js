@@ -7,7 +7,8 @@
   class Game {
     constructor() {
       this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      this.touch = MV.isTouch;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.touch ? 1.25 : 1.5));
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       $('game').appendChild(this.renderer.domElement);
       this.canvas = this.renderer.domElement;
@@ -31,6 +32,7 @@
       this.musicT = 0; this.shake = 0;
       this.ui = new MV.UI(this);
       this.net = MV.net = new MV.Net(this);
+      if (this.touch) { this.noLock = true; this.touchUI = new MV.TouchControls(this); }   // phones & tablets
       this.keys = {};
       this.mouse = { left: false, right: false, lp: false, rp: false };
       this.state = 'title';
@@ -81,6 +83,7 @@
       await this.world.preload(this.player.pos.x, this.player.pos.z, 3, p => this.ui.setLoading(p, msgs[Math.min(3, (p * 4) | 0)]));
 
       this.setupHand();
+      if (this.touch) { this.world.setRenderDist(4); $('rdist').value = 4; $('rdistVal').textContent = '4'; }   // lighter on mobile GPUs
       this.highlight = new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
         new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
@@ -92,7 +95,7 @@
       this.ui.refreshHotbar();
       this.state = 'paused';
       $('pauseTitle').textContent = '✨ Welcome to PixieCraft ✨';
-      $('resumeBtn').textContent = 'Click to begin';
+      $('resumeBtn').textContent = this.touch ? 'Tap to begin' : 'Click to begin';
       this.ui.show('pause', true);
     }
 
@@ -179,6 +182,7 @@
       window.addEventListener('pagehide', () => { if (this.sfx.ctx) this.sfx.ctx.suspend(); });
       window.addEventListener('blur', () => { if (this.state === 'playing') { this.state = 'paused'; this.ui.show('pause', true); } this.updateAudio(); });
       $('quitBtn').addEventListener('click', () => this.quitToTitle());
+      $('invClose').addEventListener('click', () => { if (this.state !== 'inventory') return; this.ui.closeInventory(); this.state = 'playing'; this.lock(); });
       document.addEventListener('pointerlockerror', () => this.playUnlocked());
 
       document.addEventListener('keydown', e => {
@@ -214,9 +218,9 @@
         }
       });
       document.addEventListener('keyup', e => { this.keys[e.code] = false; });
-      document.addEventListener('mousemove', e => { if (this.state === 'playing') this.player.look(e.movementX, e.movementY); });
+      document.addEventListener('mousemove', e => { if (this.state === 'playing' && !this.touch) this.player.look(e.movementX, e.movementY); });
       document.addEventListener('mousedown', e => {
-        if (this.state !== 'playing') return;
+        if (this.state !== 'playing' || this.touch) return;   // touch devices use the on-screen buttons
         if (e.button === 0) { this.mouse.left = true; this.mouse.lp = true; }
         if (e.button === 2) { this.mouse.right = true; this.mouse.rp = true; }
       });

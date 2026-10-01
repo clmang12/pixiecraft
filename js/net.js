@@ -407,7 +407,7 @@
 
       $('chatInput').addEventListener('keydown', e => {
         e.stopPropagation();
-        if (e.code === 'Enter') this.closeChat(true);
+        if (e.code === 'Enter' || e.key === 'Enter') this.closeChat(true);
         else if (e.code === 'Escape') this.closeChat(false);
       });
     }
