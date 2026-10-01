@@ -47,6 +47,23 @@
       this.name = 'Player'; this.code = ''; this.myId = '';
       this.sendT = 0; this.snapT = 0; this.timeT = 0; this.applying = false;
       this.bindUI();
+      setInterval(() => this.watchdog(), 2000);
+    }
+
+    // Closing a tab doesn't reliably fire a "connection closed" event, so check link health ourselves.
+    watchdog() {
+      if (!this.active) return;
+      const bad = c => {
+        const st = c && c.peerConnection ? c.peerConnection.iceConnectionState : '';
+        return !c || !c.open || st === 'disconnected' || st === 'failed' || st === 'closed';
+      };
+      if (!this.isHost) {
+        if (!this.hostConn) return;
+        this.badCount = bad(this.hostConn) ? (this.badCount || 0) + 1 : 0;
+        if (this.badCount >= 3) { this.badCount = 0; this.hostLeft(this.hostConn); }   // ~6 s of silence
+      } else {
+        for (const [id, c] of [...this.conns]) { c.badCount = bad(c) ? (c.badCount || 0) + 1 : 0; if (c.badCount >= 3) this.dropPlayer(id); }
+      }
     }
 
     // ------------------------------------------------------------ connection
@@ -61,20 +78,38 @@
       return tryLoad(0);
     }
 
-    async host(name) {
+    // Claim the room's address on the matchmaking service and start accepting players.
+    // `retry` keeps trying while the previous host's claim on the code expires (host migration).
+    openRoom(code, retry) {
+      return new Promise((resolve, reject) => {
+        let tries = 0;
+        const attempt = () => {
+          const peer = new Peer(PREFIX + code);
+          let opened = false;
+          peer.on('open', id => { opened = true; this.peer = peer; this.myId = id; resolve(); });
+          peer.on('connection', c => {
+            c.on('data', m => this.onData(c.peer, m, c));
+            c.on('close', () => this.dropPlayer(c.peer));
+            c.on('error', () => this.dropPlayer(c.peer));
+          });
+          peer.on('error', e => {
+            if (opened) return;
+            peer.destroy();
+            if (retry && e.type === 'unavailable-id' && ++tries < 25) setTimeout(attempt, 2500);
+            else reject(new Error(e.type === 'unavailable-id' ? 'That room code is already in use — try again.' : 'Could not create the room (' + e.type + ').'));
+          });
+        };
+        attempt();
+      });
+    }
+
+    async host(name, code) {
       await this.loadLib();
       this.name = name;
-      this.code = Array.from({ length: 5 }, () => ALPHABET[(Math.random() * ALPHABET.length) | 0]).join('');
-      return new Promise((resolve, reject) => {
-        const peer = this.peer = new Peer(PREFIX + this.code);
-        peer.on('open', id => { this.myId = id; this.active = true; this.isHost = true; resolve(this.code); });
-        peer.on('connection', c => {
-          c.on('data', m => this.onData(c.peer, m, c));
-          c.on('close', () => this.dropPlayer(c.peer));
-          c.on('error', () => this.dropPlayer(c.peer));
-        });
-        peer.on('error', e => { if (!this.active) reject(new Error(e.type === 'unavailable-id' ? 'Room code collision — try again.' : 'Could not create the room (' + e.type + ').')); });
-      });
+      this.code = code || Array.from({ length: 5 }, () => ALPHABET[(Math.random() * ALPHABET.length) | 0]).join('');
+      await this.openRoom(this.code, false);
+      this.active = true; this.isHost = true;
+      return this.code;
     }
 
     async join(code, name) {
@@ -91,22 +126,81 @@
             if (m.t === 'welcome') { this.active = true; this.isHost = false; resolve(m); }
             else this.onData(c.peer, m, c);
           });
-          c.on('close', () => this.hostLeft());
+          c.on('close', () => this.hostLeft(c));
           setTimeout(() => fail('Timed out — check the room code, and that the host still has the game open.'), 12000);
         });
         peer.on('error', e => fail(e.type === 'peer-unavailable' ? 'No game found with that room code.' : 'Connection failed (' + e.type + ').'));
       });
     }
 
-    hostLeft() {
-      if (!this.active) return;
-      this.active = false;
-      this.game.ui.toast('The host left — you can keep playing on your own.', 'warn');
+    // ------------------------------------------------------------ host migration
+    // The host vanished. The room lives on: the remaining player with the lowest id takes over
+    // the room code, and everyone else reconnects to them. The old host can simply join again.
+    hostLeft(conn) {
+      if (!this.active || this.isHost || (conn && conn !== this.hostConn)) return;
+      const roomId = PREFIX + this.code;
+      this.removePlayer(roomId);
+      this.hostConn = null;
+      const succ = [this.myId, ...this.players.keys()].sort()[0];
+      if (succ === this.myId) return this.becomeHost();
+      const sp = this.players.get(succ), name = sp ? sp.name : 'A friend';
+      this.removePlayer(succ);
+      this.addPlayer(roomId, name).proxy.ready = true;   // the new host will answer at the room's address
+      this.game.ui.toast(`The host left — ${name} is taking over the room…`, 'warn');
+      this.reconnect(0);
+    }
+
+    reconnect(n) {
+      if (!this.active || this.isHost) return;
+      const c = this.peer.connect(PREFIX + this.code, { reliable: true });
+      let open = false;
+      c.on('open', () => { open = true; this.hostConn = c; c.send({ t: 'hello', name: this.name, re: true }); });
+      c.on('data', m => this.onData(c.peer, m, c));
+      c.on('close', () => { if (open) this.hostLeft(c); });
+      setTimeout(() => {
+        if (open || !this.active || this.isHost) return;
+        try { c.close(); } catch (e) { /* never opened */ }
+        if (n < 14) this.reconnect(n + 1); else this.goSolo('Could not reach the new host — you can keep playing on your own.');
+      }, 2500);
+    }
+
+    async becomeHost() {
+      const g = this.game;
+      this.isHost = true; this.hostConn = null; this.conns = new Map(); this.seed = g.world.seed;
+      for (const m of this.ghosts.values()) m.ghost = false;   // these creatures are mine to simulate now
+      this.ghosts.clear();
+      for (const p of this.players.values()) p.proxy.ready = false;   // until each friend reconnects
+      g.ui.toast('👑 The host left — you are now hosting this room.', 'boss');
+      const old = this.peer;
+      try { old.destroy(); } catch (e) { /* already gone */ }
+      try {
+        await this.openRoom(this.code, true);
+        this.refreshInfo();
+        // Friends who never make it back are removed after a while
+        setTimeout(() => { for (const [id, p] of [...this.players]) if (!p.proxy.ready) this.removePlayer(id); }, 45000);
+      } catch (e) { this.goSolo('Could not take over the room — you can keep playing on your own.'); }
+    }
+
+    goSolo(msg) {
+      this.active = false; this.isHost = false;
+      this.game.ui.toast(msg, 'warn');
       for (const id of [...this.players.keys()]) this.removePlayer(id);
       for (const m of this.ghosts.values()) m.dead = true;   // real creatures will spawn again locally
       this.ghosts.clear();
       this.refreshInfo();
     }
+
+    // The host's device remembers the room (seed, time and every block change) so it can be reopened
+    saveRoom() {
+      const g = this.game;
+      if (!this.isHost || !this.active || !g.world) return;
+      try {
+        const edits = Array.from(g.world.edits);
+        if (edits.length > 60000) return;
+        localStorage.setItem('pixiecraft-room', JSON.stringify({ code: this.code, seed: this.seed, name: this.name, time: g.sky.time, day: g.sky.day, edits }));
+      } catch (e) { /* storage unavailable or full: reopening just won't be offered */ }
+    }
+    savedRoom() { try { return JSON.parse(localStorage.getItem('pixiecraft-room')); } catch (e) { return null; } }
 
     // ------------------------------------------------------------ sending
     broadcast(msg, except) { for (const [id, c] of this.conns) if (id !== except && c.open && this.players.get(id)?.proxy.ready) c.send(msg); }
@@ -223,7 +317,14 @@
       if (m.t === 'hello' && this.isHost) {
         if (this.players.size >= 7) { conn.send({ t: 'toast', msg: 'That room is full.' }); return conn.close(); }
         this.conns.set(from, conn);
-        this.addPlayer(from, String(m.name || 'Player').slice(0, 14));
+        const np = this.addPlayer(from, String(m.name || 'Player').slice(0, 14));
+        if (m.re) {   // a friend reconnecting after the previous host left: they already have the world
+          np.proxy.ready = true;
+          conn.send({ t: 'rejoined', players: [{ id: this.myId, name: this.name }, ...[...this.players].filter(([id, p]) => id !== from && p.proxy.ready).map(([id, p]) => ({ id, name: p.name }))] });
+          this.broadcast({ t: 'join', id: from, name: np.name }, from);
+          this.refreshInfo();
+          return;
+        }
         conn.send({ t: 'welcome', seed: this.seed, id: from });
         return;
       }
@@ -275,6 +376,11 @@
           g.sky.time = m.time; g.sky.day = m.day;
           break;
         case 'join': this.addPlayer(m.id, m.name).proxy.ready = true; break;
+        case 'rejoined':
+          for (const p of m.players) this.addPlayer(p.id, p.name).proxy.ready = true;
+          g.ui.toast('🌐 Reconnected — the room carries on!');
+          this.refreshInfo();
+          break;
         case 'leave': this.removePlayer(m.id); break;
         case 'time': if (Math.abs(g.sky.time - m.time) > 0.003) g.sky.time = m.time; g.sky.day = m.day; break;
         case 'mobs': this.syncGhosts(m.l); break;
@@ -335,6 +441,7 @@
         this.send(msg);
       }
       if (!this.isHost) return;
+      if ((this.saveT = (this.saveT || 0) - dt) <= 0) { this.saveT = 15; this.saveRoom(); }
       // Host: creature snapshots ~10 Hz, clock every 2 s
       if ((this.snapT -= dt) <= 0) {
         this.snapT = 0.1;
@@ -372,7 +479,7 @@
       const el = $('netInfo');
       if (!this.active) { el.textContent = ''; $('pauseRoom').textContent = ''; return; }
       const n = this.players.size + 1;
-      el.textContent = `🌐 Room ${this.code} · ${n} player${n > 1 ? 's' : ''}`;
+      el.textContent = `🌐 Room ${this.code} · ${n} player${n > 1 ? 's' : ''}${this.isHost ? ' · 👑 host' : ''}`;
       $('pauseRoom').textContent = `🌐 Online room code: ${this.code} (${this.isHost ? 'you are hosting — keep this tab open and visible' : 'guest'}) · Enter = chat`;
     }
 
@@ -380,7 +487,7 @@
       const g = this.game, status = msg => { $('netStatus').textContent = msg; };
       const mode = () => document.querySelector('.mode-btn.active').dataset.mode;
       const myName = () => ($('nameInput').value.trim() || 'Player' + ((Math.random() * 90 + 10) | 0)).slice(0, 14);
-      const busy = on => { for (const id of ['hostBtn', 'joinBtn', 'playBtn']) $(id).disabled = on; };
+      const busy = on => { for (const id of ['hostBtn', 'joinBtn', 'playBtn', 'reopenBtn']) $(id).disabled = on; };
 
       $('hostBtn').addEventListener('click', async () => {
         busy(true); status('Opening a room…');
@@ -405,6 +512,34 @@
           this.attachWorld();
         } catch (e) { status('⚠ ' + e.message); busy(false); if (this.peer) { this.peer.destroy(); this.peer = null; } }
       });
+
+      // Reopen the last room hosted on this device: join it if friends kept it alive, else re-create it
+      const saved = this.savedRoom(), reopen = $('reopenBtn');
+      if (saved && saved.code) {
+        reopen.hidden = false; reopen.textContent = `↩ Reopen room ${saved.code}`;
+        if (saved.name && !$('nameInput').value) $('nameInput').value = saved.name;
+        reopen.addEventListener('click', async () => {
+          busy(true); status(`Looking for room ${saved.code}…`);
+          try {
+            let w = null;
+            try { w = await this.join(saved.code, myName()); } catch (e) { if (this.peer) { this.peer.destroy(); this.peer = null; } }
+            if (w) {
+              status('Your friends kept the room open — joining…');
+              await g.startGame('', mode(), { seed: w.seed });
+              this.attachWorld();
+            } else {
+              status(`Reopening room ${saved.code}…`);
+              this.seed = saved.seed;
+              await this.host(myName(), saved.code);
+              await g.startGame('', mode(), { seed: saved.seed });
+              this.attachWorld();
+              for (const [k, id] of saved.edits || []) { const [x, y, z] = k.split(',').map(Number); this.applyEdit([x, y, z, id]); }
+              g.sky.time = saved.time || g.sky.time; g.sky.day = saved.day || 1;
+            }
+          } catch (e) { status('⚠ ' + e.message); busy(false); }
+        });
+      }
+      window.addEventListener('pagehide', () => this.saveRoom());
 
       $('chatInput').addEventListener('keydown', e => {
         e.stopPropagation();
