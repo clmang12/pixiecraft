@@ -52,6 +52,7 @@
       this.pending = new Set();
       this.wellCache = new Map();
       this.edits = new Map(); this.editsByChunk = new Map();
+      this.flowQ = []; this.flowT = 0; this.flowBudget = 600; this.flowing = false;
       this.userWells = [];
       this.frame = 0;
       this.matOpaque = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, alphaTest: 0.5 });
@@ -507,7 +508,48 @@
       if (ex) mark(ex, 0);
       if (ez) mark(0, ez);
       if (ex && ez) mark(ex, ez);
+      if (!this.flowing) this.checkSpill(x, y, z, id);
       return true;
+    }
+
+    // ------------------------------------------------------------ flowing water
+    // Water is a simple full-block fluid: it pours into any gap opened beside or beneath it,
+    // falls as far as it can, and spreads up to FLOW_REACH blocks sideways wherever it lands.
+    checkSpill(x, y, z, id) {
+      const W = B.WATER;
+      if (id === B.AIR) {
+        if (this.fedByWater(x, y, z)) this.flowQ.push([x, y, z, 0]);
+      } else if (id === W) this.spreadFrom(x, y, z, 0);   // a water block was placed by hand
+    }
+
+    // Water beside or above this cell? Underwater plants (kelp, seagrass) count as water.
+    isWet(x, y, z) { const id = this.getBlock(x, y, z); return id === B.WATER || (y <= SEA && BLOCKS[id].cross); }
+    fedByWater(x, y, z) {
+      return this.isWet(x, y + 1, z) || this.isWet(x + 1, y, z) || this.isWet(x - 1, y, z) || this.isWet(x, y, z + 1) || this.isWet(x, y, z - 1);
+    }
+
+    spreadFrom(x, y, z, d) {
+      if (y > 0 && this.getBlock(x, y - 1, z) === B.AIR) { this.flowQ.push([x, y - 1, z, 0]); return; }   // falling
+      if (d >= 4) return;                                                                                     // FLOW_REACH
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+        if (this.getBlock(x + dx, y, z + dz) === B.AIR && this.getChunk(Math.floor((x + dx) / CS), Math.floor((z + dz) / CS))) this.flowQ.push([x + dx, y, z + dz, d + 1]);
+    }
+
+    updateFlow(dt) {
+      if (!this.flowQ.length) { this.flowBudget = 600; return; }
+      if ((this.flowT -= dt) > 0) return;
+      this.flowT = 0.12;                       // one step of flow every ~1/8 s, so you can watch it pour
+      const batch = this.flowQ, W = B.WATER;
+      this.flowQ = [];
+      this.flowing = true;
+      for (const [x, y, z, d] of batch) {
+        if (this.flowBudget <= 0) break;       // a single spill can't flood the whole underground
+        if (y < 1 || this.getBlock(x, y, z) !== B.AIR) continue;
+        if (!this.fedByWater(x, y, z) || !this.setBlock(x, y, z, W)) continue;
+        this.flowBudget--;
+        this.spreadFrom(x, y, z, d);
+      }
+      this.flowing = false;
     }
 
     surfaceY(x, z) {

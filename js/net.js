@@ -121,7 +121,8 @@
       const w = this.game.world, orig = w.setBlock.bind(w);
       w.setBlock = (x, y, z, id) => {
         const ok = orig(x, y, z, id);
-        if (this.active && !this.applying) this.send({ t: 'b', e: [x, y, z, id] });
+        // (water flow isn't sent: every player's game works it out identically from the same edit)
+        if (this.active && !this.applying && !w.flowing) this.send({ t: 'b', e: [x, y, z, id] });
         return ok;
       };
       if (!this.isHost) this.sendHost({ t: 'ready' });
