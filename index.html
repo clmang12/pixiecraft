@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PixieCraft</title>
+  <link rel="stylesheet" href="css/style.css?v=17">
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hidden">
+    <div id="vignette"></div>
+    <div id="hurt"></div>
+    <div id="crosshair"><div id="breakRing"></div><div class="plus">✦</div></div>
+    <div id="topLeft">
+      <div id="modeTag"></div>
+      <div id="biome"></div>
+      <div id="clock"></div>
+      <div id="castleHint"></div>
+      <div id="netInfo"></div>
+      <div id="debug"></div>
+    </div>
+    <div id="statusIcons"></div>
+    <div id="chatLog"></div>
+    <div id="bossBars"></div>
+    <div id="toasts"></div>
+    <div id="bottom">
+      <div id="itemName"></div>
+      <div id="bars">
+        <div class="bar health"><span class="ico">♥</span><div class="track"><div class="fill" id="healthFill"></div></div><span class="val" id="healthText"></span></div>
+        <div class="bar magic"><span class="ico">✦</span><div class="track"><div class="fill" id="magicFill"></div></div><span class="val" id="magicText"></span></div>
+      </div>
+      <div id="hotbar"></div>
+    </div>
+  </div>
+
+  <!-- ================= Title ================= -->
+  <div id="title" class="screen">
+    <div class="panel title-panel">
+      <div class="castle" aria-hidden="true">
+        <span class="shooting-star"></span>
+        <svg viewBox="0 0 64 56" width="76" height="66">
+          <g fill="#f4ecf6" stroke="#b9a8cf" stroke-width="1">
+            <rect x="6" y="30" width="52" height="22"/><rect x="24" y="16" width="16" height="36"/>
+            <rect x="4" y="24" width="10" height="28"/><rect x="50" y="24" width="10" height="28"/>
+          </g>
+          <g fill="#3f6fe0" stroke="#2a4bb0" stroke-width="1">
+            <polygon points="32,1 22,16 42,16"/><polygon points="9,11 3,24 15,24"/><polygon points="55,11 49,24 61,24"/>
+          </g>
+          <g fill="#ffd76a"><circle cx="32" cy="2" r="1.6"/><circle cx="9" cy="11" r="1.3"/><circle cx="55" cy="11" r="1.3"/></g>
+          <path d="M27 52 v-9 a5 5 0 0 1 10 0 v9 z" fill="#3a2a5e"/>
+          <g fill="#8fe7ff"><rect x="29" y="22" width="6" height="7" rx="3"/><rect x="7" y="30" width="4" height="5" rx="2"/><rect x="53" y="30" width="4" height="5" rx="2"/></g>
+        </svg>
+      </div>
+      <h1 class="logo">Pixie<span>Craft</span></h1>
+      <p class="tag">A pixie-dusted voxel sandbox of castles, crystals &amp; wishes</p>
+      <label class="seed">World seed <input id="seedInput" placeholder="random ✨" maxlength="24"></label>
+      <div class="mode-pick">
+        <button class="mode-btn active" data-mode="creative">🏰 Creative<small>fly · infinite blocks</small></button>
+        <button class="mode-btn" data-mode="survival">⚔ Survival<small>gather · craft · survive</small></button>
+      </div>
+      <button id="playBtn" class="big-btn">Enter the Kingdom (solo)</button>
+      <div class="online">
+        <div class="online-title">🌐 Play online with friends</div>
+        <div class="online-row">
+          <input id="nameInput" placeholder="Your name" maxlength="14">
+          <button id="hostBtn" class="btn">Host a game</button>
+        </div>
+        <div class="online-row">
+          <input id="codeInput" placeholder="Room code" maxlength="5">
+          <button id="joinBtn" class="btn">Join a game</button>
+        </div>
+        <div id="netStatus"></div>
+      </div>
+      <div id="loading" class="hidden">
+        <div class="load-track"><div id="loadFill"></div></div>
+        <div id="loadText"></div>
+      </div>
+      <div class="controls">
+        <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look</div>
+        <div><kbd>Space</kbd> jump · <kbd>Space×2</kbd> fly (creative)</div>
+        <div><kbd>Shift</kbd> sprint / descend</div>
+        <div><kbd>LMB</kbd> break · attack · wand bolt</div>
+        <div><kbd>RMB</kbd> place · use item · wand zap</div>
+        <div><kbd>1-9</kbd>/<kbd>Wheel</kbd> hotbar · <kbd>E</kbd> satchel &amp; crafting</div>
+        <div><kbd>R</kbd> light orb spell · <kbd>G</kbd> pixie glide</div>
+        <div><kbd>F</kbd> fly · <kbd>M</kbd> creative/survival · <kbd>T</kbd> hold: fast time · <kbd>F3</kbd> debug</div>
+        <div><kbd>N</kbd> music on/off · Craft relics to summon bosses!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Pause ================= -->
+  <div id="pause" class="screen hidden">
+    <div class="panel">
+      <h2 id="pauseTitle">Paused</h2>
+      <button id="resumeBtn" class="big-btn">Resume</button>
+      <div id="pauseRoom"></div>
+      <button id="modeBtn" class="btn">Switch Creative / Survival</button>
+      <button id="quitBtn" class="btn quit">Quit to Title</button>
+      <label class="range">Music volume <input type="range" id="musicVol" min="0" max="100" value="50"> <span id="musicVolVal">50%</span></label>
+      <label class="range">Render distance <input type="range" id="rdist" min="3" max="10" value="6"> <span id="rdistVal">6</span></label>
+      <div class="controls small">
+        <div><kbd>E</kbd> satchel &amp; Magic Workbench · <kbd>R</kbd> light orb · <kbd>G</kbd> pixie glide · <kbd>M</kbd> switch mode</div>
+        <div>Wishing Wells ⛲ are sanctuaries: friendly critters gather, magic refills, shadows stay away.</div>
+        <div>👑 Bosses: defeat 8 Sand Beasts, 15 Mops or 10 Shadow Beasts (at night) — or craft a Cursed Scarab, Enchanted Bucket, Dark Crystal, Cursed Acorn or Frost Horn. ⛄ Snowmen and the mighty Yeti roam the snowy peaks. 🏴‍☠️ Cursed pirates, sharks and worse — and the KRAKEN — haunt the Cursed Cove — hold <kbd>Shift</kbd> to dive, and watch your air! Beware of trees that creak… 🎆 Fireworks every night at 9 PM! <kbd>N</kbd> toggles music.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Inventory ================= -->
+  <div id="inventory" class="screen hidden">
+    <div class="panel inv-panel">
+      <div class="inv-left">
+        <h2 id="invTitle">Satchel</h2>
+        <div id="invGrid" class="grid"></div>
+        <h3>Hotbar</h3>
+        <div id="invHotbar" class="grid"></div>
+      </div>
+      <div class="inv-right">
+        <h2>✦ Magic Workbench</h2>
+        <div id="recipes"></div>
+      </div>
+      <div class="hint">Press <kbd>E</kbd> or <kbd>Esc</kbd> to close</div>
+    </div>
+  </div>
+  <div id="heldItem"></div>
+  <input id="chatInput" class="hidden" maxlength="120" placeholder="Say something… (Enter to send, Esc to cancel)">
+
+  <!-- ================= Death ================= -->
+  <div id="death" class="screen hidden">
+    <div class="panel">
+      <h2>You fainted…</h2>
+      <p>The wishing well's magic carries you home.</p>
+      <button id="respawnBtn" class="big-btn">⛲ Make a Wish (Respawn)</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/noise.js?v=17"></script>
+  <script src="js/blocks.js?v=17"></script>
+  <script src="js/world.js?v=17"></script>
+  <script src="js/castle.js?v=17"></script>
+  <script src="js/player.js?v=17"></script>
+  <script src="js/particles.js?v=17"></script>
+  <script src="js/sky.js?v=17"></script>
+  <script src="js/mobs.js?v=17"></script>
+  <script src="js/enemies.js?v=17"></script>
+  <script src="js/bosses.js?v=17"></script>
+  <script src="js/treemonster.js?v=17"></script>
+  <script src="js/cars.js?v=17"></script>
+  <script src="js/snowpeaks.js?v=17"></script>
+  <script src="js/cove.js?v=17"></script>
+  <script src="js/biomes.js?v=17"></script>
+  <script src="js/fireworks.js?v=17"></script>
+  <script src="js/spells.js?v=17"></script>
+  <script src="js/sfx.js?v=17"></script>
+  <script src="js/music.js?v=17"></script>
+  <script src="js/inventory.js?v=17"></script>
+  <script src="js/ui.js?v=17"></script>
+  <script src="js/net.js?v=17"></script>
+  <script src="js/main.js?v=17"></script>
+</body>
+</html>
