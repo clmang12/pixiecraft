@@ -540,6 +540,7 @@
         }
         this.net.update(dt);
         this.world.update(this.player.pos.x, this.player.pos.z);
+        if (sim) this.world.updateFlow(dt);
         this.world.flush();
         this.sky.update(sim ? dt * (this.keys.KeyT && playing && (!online || this.net.isHost) ? 40 : 1) : 0, this.camera.position, this.scene.fog, this.renderer);
         this.world.setLight(this.sky.light);
