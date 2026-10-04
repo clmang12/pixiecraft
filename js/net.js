@@ -121,7 +121,7 @@
         peer.on('open', id => {
           this.myId = id;
           const c = this.hostConn = peer.connect(PREFIX + this.code, { reliable: true });
-          c.on('open', () => c.send({ t: 'hello', name }));
+          c.on('open', () => c.send({ t: 'hello', name, outfit: this.game.outfit }));
           c.on('data', m => {
             if (m.t === 'welcome') { this.active = true; this.isHost = false; resolve(m); }
             else this.onData(c.peer, m, c);
@@ -154,7 +154,7 @@
       if (!this.active || this.isHost) return;
       const c = this.peer.connect(PREFIX + this.code, { reliable: true });
       let open = false;
-      c.on('open', () => { open = true; this.hostConn = c; c.send({ t: 'hello', name: this.name, re: true }); });
+      c.on('open', () => { open = true; this.hostConn = c; c.send({ t: 'hello', name: this.name, re: true, outfit: this.game.outfit }); });
       c.on('data', m => this.onData(c.peer, m, c));
       c.on('close', () => { if (open) this.hostLeft(c); });
       setTimeout(() => {
@@ -231,9 +231,9 @@
     }
 
     // ------------------------------------------------------------ players
-    addPlayer(id, name) {
+    addPlayer(id, name, outfit) {
       if (this.players.has(id)) return this.players.get(id);
-      const p = { name, proxy: new Proxy(this, id, name), avatar: this.makeAvatar(id, name), tPos: new THREE.Vector3(0, -999, 0), tYaw: 0, moved: 0 };
+      const p = { name, outfit, proxy: new Proxy(this, id, name), avatar: this.makeAvatar(id, name, outfit), tPos: new THREE.Vector3(0, -999, 0), tYaw: 0, moved: 0 };
       this.players.set(id, p);
       this.refreshInfo();
       return p;
@@ -253,22 +253,10 @@
       this.broadcast({ t: 'leave', id });
     }
 
-    makeAvatar(id, name) {
-      const box = MV.mobBox, pivot = MV.mobPivot, root = new THREE.Group(), P = {};
-      const hues = [0xe63946, 0x4d7cff, 0xff7ad9, 0x2e9d4a, 0xffc93c, 0x9b6bff, 0x20c0c0, 0xff8c28];
-      const shirt = hues[MV.hashString(id) % hues.length], SKIN = 0xffe0bd, PANTS = 0x34406a;
-      for (const s of [-1, 1]) {
-        const leg = pivot(root, s * 0.12, 0.72, 0); box(leg, 0.2, 0.72, 0.22, PANTS, 0, -0.36, 0); P[s < 0 ? 'legL' : 'legR'] = leg;
-        const arm = pivot(root, s * 0.34, 1.38, 0); box(arm, 0.16, 0.66, 0.2, shirt, 0, -0.3, 0); box(arm, 0.16, 0.14, 0.2, SKIN, 0, -0.68, 0); P[s < 0 ? 'armL' : 'armR'] = arm;
-      }
-      box(root, 0.5, 0.68, 0.28, shirt, 0, 1.06, 0);
-      const head = pivot(root, 0, 1.62, 0);
-      box(head, 0.42, 0.42, 0.42, SKIN, 0, 0, 0);
-      box(head, 0.44, 0.14, 0.44, 0x5a3a22, 0, 0.17, 0);
-      box(head, 0.07, 0.08, 0.02, 0x222222, -0.1, 0.0, 0.215); box(head, 0.07, 0.08, 0.02, 0x222222, 0.1, 0.0, 0.215);
-      box(head, 0.3, 0.3, 0.3, shirt, 0, 0.36, 0).rotation.y = Math.PI / 4;   // pointed pixie hat
-      box(head, 0.16, 0.2, 0.16, shirt, 0, 0.58, 0);
-      P.head = head;
+    sendOutfit(o) { if (this.active) this.send({ t: 'outfit', id: this.myId, o }); }
+
+    makeAvatar(id, name, outfit) {
+      const { root, P } = MV.buildAvatar(outfit || MV.defaultOutfitFor(id));
       // Name tag
       const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
       const ctx = cv.getContext('2d');
@@ -317,11 +305,11 @@
       if (m.t === 'hello' && this.isHost) {
         if (this.players.size >= 7) { conn.send({ t: 'toast', msg: 'That room is full.' }); return conn.close(); }
         this.conns.set(from, conn);
-        const np = this.addPlayer(from, String(m.name || 'Player').slice(0, 14));
+        const np = this.addPlayer(from, String(m.name || 'Player').slice(0, 14), m.outfit);
         if (m.re) {   // a friend reconnecting after the previous host left: they already have the world
           np.proxy.ready = true;
-          conn.send({ t: 'rejoined', players: [{ id: this.myId, name: this.name }, ...[...this.players].filter(([id, p]) => id !== from && p.proxy.ready).map(([id, p]) => ({ id, name: p.name }))] });
-          this.broadcast({ t: 'join', id: from, name: np.name }, from);
+          conn.send({ t: 'rejoined', players: [{ id: this.myId, name: this.name, outfit: this.game.outfit }, ...[...this.players].filter(([id, p]) => id !== from && p.proxy.ready).map(([id, p]) => ({ id, name: p.name, outfit: p.outfit }))] });
+          this.broadcast({ t: 'join', id: from, name: np.name, outfit: np.outfit }, from);
           this.refreshInfo();
           return;
         }
@@ -335,9 +323,9 @@
         case 'ready': {
           if (!this.isHost || !P) break;
           conn.send({ t: 'edits', list: Array.from(g.world.edits), time: g.sky.time, day: g.sky.day,
-            players: [{ id: this.myId, name: this.name }, ...[...this.players].filter(([id, p]) => id !== from && p.proxy.ready).map(([id, p]) => ({ id, name: p.name }))] });
+            players: [{ id: this.myId, name: this.name, outfit: this.game.outfit }, ...[...this.players].filter(([id, p]) => id !== from && p.proxy.ready).map(([id, p]) => ({ id, name: p.name, outfit: p.outfit }))] });
           P.proxy.ready = true;
-          this.broadcast({ t: 'join', id: from, name: P.name }, from);
+          this.broadcast({ t: 'join', id: from, name: P.name, outfit: P.outfit }, from);
           this.chatLine(`✦ ${P.name} joined the kingdom`);
           this.broadcast({ t: 'chat', msg: `✦ ${P.name} joined the kingdom` }, from);
           break;
@@ -372,12 +360,23 @@
         // ---- guests receive
         case 'edits':
           for (const [k, id] of m.list) { const [x, y, z] = k.split(',').map(Number); this.applyEdit([x, y, z, id]); }
-          for (const p of m.players) this.addPlayer(p.id, p.name).proxy.ready = true;
+          for (const p of m.players) this.addPlayer(p.id, p.name, p.outfit).proxy.ready = true;
           g.sky.time = m.time; g.sky.day = m.day;
           break;
-        case 'join': this.addPlayer(m.id, m.name).proxy.ready = true; break;
+        case 'join': this.addPlayer(m.id, m.name, m.outfit).proxy.ready = true; break;
+        case 'outfit': {
+          const id = this.isHost ? from : m.id, pl = this.players.get(id);
+          if (!pl) break;
+          pl.outfit = m.o;
+          const old = pl.avatar.root;
+          pl.avatar = this.makeAvatar(id, pl.name, m.o);
+          pl.avatar.root.position.copy(old.position); pl.avatar.root.rotation.copy(old.rotation);
+          g.scene.remove(old);
+          if (this.isHost) { m.id = from; this.broadcast(m, from); }
+          break;
+        }
         case 'rejoined':
-          for (const p of m.players) this.addPlayer(p.id, p.name).proxy.ready = true;
+          for (const p of m.players) this.addPlayer(p.id, p.name, p.outfit).proxy.ready = true;
           g.ui.toast('🌐 Reconnected — the room carries on!');
           this.refreshInfo();
           break;
@@ -429,9 +428,7 @@
         let d = p.tYaw + Math.PI - r.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
         r.rotation.y += d * Math.min(1, dt * 12);
         const sp = Math.min(1, before.distanceTo(r.position) / Math.max(dt, 1e-3) / 3);
-        a.t += dt * (4 + sp * 6);
-        const sw = Math.sin(a.t) * 0.7 * sp;
-        a.P.legL.rotation.x = sw; a.P.legR.rotation.x = -sw; a.P.armL.rotation.x = -sw; a.P.armR.rotation.x = sw;
+        MV.animateAvatar(a, dt, sp);
       }
       // My own state, ~15 times a second
       if ((this.sendT -= dt) <= 0) {

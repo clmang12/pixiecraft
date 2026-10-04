@@ -32,6 +32,7 @@
       this.musicT = 0; this.shake = 0;
       this.ui = new MV.UI(this);
       this.net = MV.net = new MV.Net(this);
+      this.wardrobe = new MV.Wardrobe(this); this.outfit = this.wardrobe.outfit; this.view = 0;
       if (this.touch) { this.noLock = true; this.touchUI = new MV.TouchControls(this); }   // phones & tablets
       this.keys = {};
       this.mouse = { left: false, right: false, lp: false, rp: false };
@@ -83,6 +84,7 @@
       await this.world.preload(this.player.pos.x, this.player.pos.z, 3, p => this.ui.setLoading(p, msgs[Math.min(3, (p * 4) | 0)]));
 
       this.setupHand();
+      this.me = MV.buildAvatar(this.outfit); this.me.root.visible = false; this.scene.add(this.me.root);   // your own body, seen in third person
       if (this.touch) { this.world.setRenderDist(4); $('rdist').value = 4; $('rdistVal').textContent = '4'; }   // lighter on mobile GPUs
       this.highlight = new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
@@ -214,6 +216,8 @@
           case 'KeyM': this.setMode(this.mode === 'creative' ? 'survival' : 'creative'); break;
           case 'KeyR': this.castLightOrb(); break;
           case 'F3': this.debug = !this.debug; break;
+          case 'KeyV': this.cycleView(); break;
+          case 'KeyO': this.wardrobe.open(); break;
           case 'KeyN': this.ui.toast(this.music.toggle() ? '♫ Music on' : '♫ Music off'); break;
         }
       });
@@ -242,7 +246,57 @@
     }
 
     // ------------------------------------------------------------ interaction
-    eyeDir() { return this.camera.getWorldDirection(this.tmpDir); }
+    // Aim always comes from the character's eyes, whichever way the camera is placed
+    eyePos() { const p = this.player.pos; return new THREE.Vector3(p.x, p.y + this.player.eye, p.z); }
+    eyeDir() {
+      const p = this.player, cp = Math.cos(p.pitch);
+      return this.tmpDir.set(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp);
+    }
+    handPoint() {   // where spells and beams leave from: a little right of and below the eyes
+      const d = this.eyeDir().clone(), right = new THREE.Vector3(-d.z, 0, d.x).normalize();
+      return this.eyePos().addScaledVector(d, 0.6).addScaledVector(right, 0.3).add(new THREE.Vector3(0, -0.25, 0));
+    }
+
+    // ------------------------------------------------------------ point of view
+    cycleView() {
+      this.view = ((this.view || 0) + 1) % 3;
+      this.ui.toast(['👁 First person', '🎥 Third person (behind)', '🤳 Third person (facing you)'][this.view]);
+    }
+
+    applyView(dt) {
+      const p = this.player, cam = this.camera, me = this.me, third = this.view > 0;
+      if (!me) return;
+      me.root.visible = third;
+      this.hand.visible = !third;
+      $('crosshair').style.visibility = this.view === 2 ? 'hidden' : 'visible';
+      if (!third) return;
+      me.root.position.copy(p.pos);
+      me.root.rotation.y = p.yaw + Math.PI;
+      const sp = Math.min(1, Math.hypot(p.vel.x, p.vel.z) / 4.6);
+      MV.animateAvatar(me, dt, p.onGround || p.inWater ? sp : 0.15, p.pitch);
+      // Pull the camera back (or out in front), stopping short of walls
+      const eye = this.eyePos(), d = this.eyeDir().clone(), sign = this.view === 1 ? -1 : 1, pt = new THREE.Vector3();
+      let dist = 0.4;
+      for (; dist < 4.2; dist += 0.1) {
+        pt.copy(eye).addScaledVector(d, sign * dist);
+        const id = this.world.getBlock(Math.floor(pt.x), Math.floor(pt.y), Math.floor(pt.z));
+        if (MV.BLOCKS[id].opaque) { dist = Math.max(0.4, dist - 0.35); break; }   // leaves & glass don't block the view
+      }
+      cam.position.copy(eye).addScaledVector(d, sign * dist);
+      if (this.view === 2) cam.lookAt(eye);
+      me.root.visible = dist > 1.1;   // squeezed against a wall: don't look out from inside your own head
+    }
+
+    onOutfitChange(o) {
+      this.outfit = o;
+      if (this.me) {
+        const vis = this.me.root.visible;
+        this.scene.remove(this.me.root);
+        this.me = MV.buildAvatar(o); this.me.root.visible = vis;
+        this.scene.add(this.me.root);
+      }
+      if (this.net) this.net.sendOutfit(o);
+    }
 
     breakBlock(hit, viaWand) {
       const w = this.world, def = BLOCKS[hit.id];
@@ -288,7 +342,7 @@
 
     castLightOrb() {
       if (!this.player.useMagic(15)) return;
-      const o = this.camera.position, d = this.eyeDir();
+      const o = this.eyePos(), d = this.eyeDir();
       const hit = this.world.raycast(o, d, 10, id => BLOCKS[id].solid);
       const pos = hit
         ? new THREE.Vector3(hit.x + 0.5 + hit.nx * 1.2, hit.y + 0.5 + hit.ny * 1.2, hit.z + 0.5 + hit.nz * 1.2)
@@ -326,10 +380,10 @@
           this.ui.refreshHotbar();
         }
       } else if (id === I.WAND) {
-        const far = this.world.raycast(this.camera.position, this.eyeDir(), 24, b => b !== B.WATER);
+        const far = this.world.raycast(this.eyePos(), this.eyeDir(), 24, b => b !== B.WATER);
         if (!far) return;
         if (!p.useMagic(4)) return;
-        const handPos = this.camera.localToWorld(new THREE.Vector3(0.35, -0.3, -0.8));
+        const handPos = this.handPoint();
         this.particles.beam(handPos, new THREE.Vector3(far.x + 0.5, far.y + 0.5, far.z + 0.5));
         this.breakBlock(far, true);
         this.swing = 1;
@@ -346,7 +400,7 @@
 
     updateInteraction(dt) {
       const creative = this.mode === 'creative';
-      const o = this.camera.position, d = this.eyeDir().clone();
+      const o = this.eyePos(), d = this.eyeDir().clone();
       const reach = creative ? 8 : 5.5;
       const hit = this.world.raycast(o, d, reach, id => id !== B.WATER);
       const mobHit = this.mobs.raycast(o, d, reach);
@@ -361,7 +415,7 @@
       if (m.left) {
         if (id === I.WAND) {
           if (this.boltCd <= 0 && this.player.useMagic(5)) {
-            this.spells.castBolt(this.camera.localToWorld(new THREE.Vector3(0.3, -0.25, -0.6)), d);
+            this.spells.castBolt(this.handPoint(), d);
             this.boltCd = 0.22; this.swing = 1;
           }
         } else if (mobHit && (!hit || mobHit.dist < hit.dist)) {
@@ -527,6 +581,7 @@
         const sim = playing || online;   // a shared online world never pauses
         if (playing) {
           this.player.update(dt);
+          this.applyView(dt);
           this.updateInteraction(dt);
           this.updateHand(dt);
         }
