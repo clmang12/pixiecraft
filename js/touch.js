@@ -25,6 +25,8 @@
           <button data-act="inv" aria-label="Satchel">🎒</button>
           <button data-act="orb" aria-label="Light orb">✨</button>
           <button data-act="glide" aria-label="Pixie glide">🪽</button>
+          <button data-act="view" aria-label="Change point of view">👁</button>
+          <button data-act="wardrobe" aria-label="Wardrobe">👗</button>
           <button data-act="chat" id="tChat" aria-label="Chat" hidden>💬</button>
         </div>
         <div class="tpad">
@@ -103,6 +105,8 @@
         orb: () => g.castLightOrb(),
         glide: () => { const p = g.player; p.glideMode = !p.glideMode; g.ui.toast(p.glideMode ? '✦ Pixie Glide on — hold ⤒ in the air to soar' : 'Pixie Glide off'); },
         chat: () => { this.release(); g.net.openChat(); },
+        view: () => g.cycleView(),
+        wardrobe: () => g.wardrobe.open(),
       };
       ui.querySelectorAll('[data-act]').forEach(b => b.addEventListener('touchstart', e => {
         e.preventDefault(); e.stopPropagation();
