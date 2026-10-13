@@ -402,12 +402,12 @@
     syncGhosts(list) {
       const g = this.game, seen = new Set();
       for (const s of list) {
-        const [id, type, x, y, z, yaw, hp, maxHp, flags, scale] = s;
+        const [id, type, x, y, z, yaw, hp, maxHp, flags, scale, variant] = s;
         seen.add(id);
         let m = this.ghosts.get(id);
         if (!m) {
           if (!MV.MOB_TYPES[type]) continue;
-          m = new MV.Mob(g, type, x, y, z, { scale, ghost: true });
+          m = new MV.Mob(g, type, x, y, z, { scale, variant, ghost: true });
           m.netId = id; m.netPos = new THREE.Vector3(x, y, z); m.yaw = m.netYaw = yaw;
           g.mobs.list.push(m); this.ghosts.set(id, m);
         }
@@ -443,7 +443,7 @@
       if ((this.snapT -= dt) <= 0) {
         this.snapT = 0.1;
         const l = [];
-        for (const m of g.mobs.list) if (!m.dead) l.push([m.id, m.type, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.yaw), Math.ceil(m.hp), m.maxHp, (m.enraged ? 1 : 0) | (m.dormant ? 2 : 0), m.scale]);
+        for (const m of g.mobs.list) if (!m.dead) l.push([m.id, m.type, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.yaw), Math.ceil(m.hp), m.maxHp, (m.enraged ? 1 : 0) | (m.dormant ? 2 : 0), m.scale, m.variant || 0]);
         this.broadcast({ t: 'mobs', l });
       }
       if ((this.timeT -= dt) <= 0) { this.timeT = 2; this.broadcast({ t: 'time', time: g.sky.time, day: g.sky.day }); }

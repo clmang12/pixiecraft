@@ -61,6 +61,7 @@
       this.setRenderDist(6);
       this.spawn = this.findSpawn();
       this.castle = this.findCastle ? this.findCastle() : null;
+      this.village = this.findVillage ? this.findVillage() : null;
     }
 
     setRenderDist(r) {
@@ -164,6 +165,7 @@
     nearestWell(x, z) {
       const list = this.wellsInRange(x - 140, z - 140, x + 140, z + 140).concat(this.userWells);
       if (this.castle) list.push(this.castle);   // the castle keep is a sanctuary too
+      if (this.village) list.push(this.village); // so is the Pixie Village
       let best = null, bd = Infinity;
       for (const w of list) { const d = Math.hypot(w.x + 0.5 - x, w.z + 0.5 - z); if (d < bd) { bd = d; best = w; } }
       return best ? { well: best, dist: bd } : null;
@@ -266,6 +268,7 @@
       for (const s of this.roadsideInRange(ox - 8, oz - 8, ox + CS + 8, oz + CS + 8)) this.buildRoadside(set, s);
       for (const s of this.wrecksInRange(ox - 9, oz - 9, ox + CS + 9, oz + CS + 9)) this.buildWreck(set, s);
       if (this.castle) this.buildCastle(set, c);
+      if (this.village) this.buildVillage(set, c);
     }
 
     // ------------------------------------------------------------ sunken pirate shipwrecks

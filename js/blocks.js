@@ -11,8 +11,10 @@
     RED_ROCK: 25, RED_SAND: 26, ASPHALT: 27, ROAD_LINE: 28, CACTUS: 29, NEON: 30, TIRE: 31, CONE_BLOCK: 32,
     TRAFFIC_CONE: 33, CHROME: 34,
     CORAL_PINK: 35, CORAL_BLUE: 36, SEAGRASS: 37, SHIP_PLANK: 38, TREASURE: 39, SAIL: 40,
+    PIXIE_CAP: 41, PIXIE_CAP_TEAL: 42, PIXIE_STEM: 43,
   });
-  const ITEM = (MV.ITEM = { WAND: 100, DUST: 101, WELL: 102, SCARAB: 103, BUCKET: 104, DARKSTAR: 105, ACORN: 106, FROSTHORN: 107, PEARL: 108 });
+  const ITEM = (MV.ITEM = { WAND: 100, DUST: 101, WELL: 102, SCARAB: 103, BUCKET: 104, DARKSTAR: 105, ACORN: 106, FROSTHORN: 107, PEARL: 108,
+    POTION_HEAL: 109, POTION_MAGIC: 110, ELIXIR_SPEED: 111, BUBBLE: 112, WARD: 113 });
 
   const T = {
     GRASS_TOP: 0, GRASS_SIDE: 1, DIRT: 2, STONE: 3, SAND: 4, SS_SIDE: 5, SS_TOP: 6, CRYSTAL: 7, SNOW: 8,
@@ -21,6 +23,7 @@
     RR_TOP: 27, RR_SIDE: 28, RED_SAND: 29, ASPHALT: 30, ROADLINE: 31, CACTUS_SIDE: 32, CACTUS_TOP: 33, NEON: 34,
     TIRE_SIDE: 35, TIRE_TOP: 36, CONEB_SIDE: 37, CONEB_TOP: 38, TRAFFIC_CONE: 39, CHROME: 40,
     CORAL_PINK: 41, CORAL_BLUE: 42, SEAGRASS: 43, SHIP_PLANK: 44, CHEST_SIDE: 45, CHEST_TOP: 46, SAIL: 47,
+    CAP_PINK: 48, CAP_TEAL: 49, STEM: 50,
   };
   const TS = 16, COLS = 16, ROWS = 4;
 
@@ -79,6 +82,10 @@
   def(B.SHIP_PLANK, 'Shipwreck Planks', [T.SHIP_PLANK], '#60463a', { hardness: 0.7 });
   def(B.TREASURE, 'Treasure Chest', [T.CHEST_TOP, T.CHEST_SIDE], '#ffcc40', { glow: true, hardness: 0.8 });
   def(B.SAIL, 'Black Sail', [T.SAIL], '#1e1e22', { opaque: false, hardness: 0.2 });
+  // Pixie Village
+  def(B.PIXIE_CAP, 'Fairy Cap (pink)', [T.CAP_PINK], '#f0559a', { hardness: 0.5 });
+  def(B.PIXIE_CAP_TEAL, 'Fairy Cap (teal)', [T.CAP_TEAL], '#2fb8b0', { hardness: 0.5 });
+  def(B.PIXIE_STEM, 'Mushroom Stem', [T.STEM], '#f2e6cf', { hardness: 0.5 });
   for (let i = 1; i < 256; i++) if (!BLOCKS[i]) BLOCKS[i] = BLOCKS[0];
   BLOCKS[B.TREASURE].loot = [[B.GOLD, 3], [B.CRYSTAL, 2], [ITEM.DUST, 2], [B.GOLD_ORE, 4]];
 
@@ -91,17 +98,24 @@
     [ITEM.DARKSTAR]: { name: 'Dark Crystal', desc: 'RMB: call down the Shadow Dragon (boss)' },
     [ITEM.ACORN]: { name: 'Cursed Acorn', desc: 'RMB: awaken a Tree Monster (boss)' },
     [ITEM.PEARL]: { name: 'Abyssal Pearl', desc: 'RMB near deep water: summon the Kraken (boss)' },
+    [ITEM.POTION_HEAL]: { name: 'Healing Potion', desc: 'RMB: restore all your health' },
+    [ITEM.POTION_MAGIC]: { name: 'Magic Potion', desc: 'RMB: refill all your magic' },
+    [ITEM.ELIXIR_SPEED]: { name: 'Swiftness Elixir', desc: 'RMB: run 60% faster for 60 seconds' },
+    [ITEM.BUBBLE]: { name: 'Bubble Charm', desc: 'RMB: breathe underwater for 90 seconds' },
+    [ITEM.WARD]: { name: 'Fairy Ward', desc: 'RMB: nothing can hurt you for 20 seconds' },
     [ITEM.FROSTHORN]: { name: 'Frost Horn', desc: 'RMB: blow it to challenge the Yeti (boss)' },
   };
   MV.isBlock = id => id > 0 && id < 100;
   MV.itemName = id => (id >= 100 ? MV.ITEMS[id].name : BLOCKS[id].name);
   MV.PALETTE = [
     ITEM.WAND, ITEM.DUST, ITEM.WELL, ITEM.SCARAB, ITEM.BUCKET, ITEM.DARKSTAR, ITEM.ACORN, ITEM.FROSTHORN, ITEM.PEARL,
+    ITEM.POTION_HEAL, ITEM.POTION_MAGIC, ITEM.ELIXIR_SPEED, ITEM.BUBBLE, ITEM.WARD,
     B.GRASS, B.DIRT, B.STONE, B.SAND, B.SANDSTONE, B.SNOW, B.CLOUD,
     B.BRICK, B.PLANKS, B.LOG, B.ROOF, B.WELLSTONE, B.GLASS, B.GOLD, B.GOLD_ORE,
     B.CRYSTAL, B.LANTERN, B.LEAVES, B.BLOSSOM, B.ROSE, B.BLUEBELL, B.GLOWCAP, B.WATER, B.RUNESTONE,
     B.RED_ROCK, B.RED_SAND, B.ASPHALT, B.ROAD_LINE, B.CACTUS, B.NEON, B.TIRE, B.CONE_BLOCK, B.TRAFFIC_CONE, B.CHROME,
     B.CORAL_PINK, B.CORAL_BLUE, B.SEAGRASS, B.SHIP_PLANK, B.TREASURE, B.SAIL,
+    B.PIXIE_CAP, B.PIXIE_CAP_TEAL, B.PIXIE_STEM,
   ];
 
   // ---------------------------------------------------------------- texture painters
@@ -391,6 +405,15 @@
     if (x === 0 || x === 15 || y === 0 || y === 15 || x === 7 || x === 8) s(x, y, 255, 204 + v, 64);
     else s(x, y, 140 + v, 90 + v, 48 + v);
   });
+  // Pixie Village: spotted mushroom caps and cream stems
+  const cap = (base) => (s, r) => {
+    each((x, y) => { const v = (r() - 0.5) * 18; s(x, y, base[0] + v, base[1] + v, base[2] + v); });
+    for (const [cx, cy, rad] of [[4, 4, 2.2], [11, 6, 1.6], [6, 11, 1.8], [13, 13, 1.2], [1, 12, 1.1]])
+      each((x, y) => { const d = Math.min(Math.hypot(x - cx, y - cy), Math.hypot(x - cx - 16, y - cy), Math.hypot(x - cx, y - cy - 16)); if (d < rad) s(x, y, 252, 248, 240); });
+  };
+  P[T.CAP_PINK] = cap([238, 82, 150]);
+  P[T.CAP_TEAL] = cap([44, 178, 172]);
+  P[T.STEM] = (s, r) => each((x, y) => { const v = (r() - 0.5) * 10 - (x % 4 === 0 ? 14 : 0); s(x, y, 242 + v, 230 + v, 206 + v); });
   P[T.SAIL] = (s, r) => {
     each((x, y) => { if (r() < 0.06) return; const v = (r() - 0.5) * 12; s(x, y, 30 + v, 30 + v, 34 + v); });
     // tiny skull & crossbones
@@ -501,6 +524,28 @@
       ctx.fillStyle = '#6d6f88'; ctx.fillRect(S * 0.26, S * 0.52, S * 0.48, S * 0.05); ctx.fillRect(S * 0.3, S * 0.74, S * 0.4, S * 0.05);
       ctx.fillStyle = '#4ea2ff'; ctx.shadowColor = '#9ff3ff'; ctx.shadowBlur = S * 0.15; ctx.fillRect(S * 0.25, S * 0.33, S * 0.5, S * 0.07);
       ctx.fillStyle = '#fff'; [[0.35, 0.22], [0.6, 0.16], [0.7, 0.26]].forEach(([x, y]) => ctx.fillRect(x * S, y * S, S * 0.04, S * 0.04));
+    } else if (id >= ITEM.POTION_HEAL && id <= ITEM.ELIXIR_SPEED) {
+      // Potion bottle: round flask, cork, coloured liquid and a sparkle
+      const col = { [ITEM.POTION_HEAL]: ['#ff6b8b', '#c41e4a'], [ITEM.POTION_MAGIC]: ['#8fe7ff', '#3a6fe0'], [ITEM.ELIXIR_SPEED]: ['#ffe27a', '#e08a1e'] }[id];
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(S / 2, S * 0.6, S * 0.27, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(S * 0.42, S * 0.18, S * 0.16, S * 0.2);
+      const g = ctx.createLinearGradient(0, S * 0.45, 0, S * 0.86); g.addColorStop(0, col[0]); g.addColorStop(1, col[1]);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(S / 2, S * 0.62, S * 0.23, 0.1, Math.PI - 0.1); ctx.closePath(); ctx.fill();
+      ctx.fillRect(S * 0.28, S * 0.6, S * 0.44, S * 0.04);
+      ctx.fillStyle = '#8a5a3c'; ctx.fillRect(S * 0.4, S * 0.1, S * 0.2, S * 0.1);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = S * 0.025; ctx.beginPath(); ctx.arc(S / 2, S * 0.6, S * 0.27, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillRect(S * 0.36, S * 0.5, S * 0.06, S * 0.06);
+      if (id === ITEM.ELIXIR_SPEED) { ctx.fillStyle = '#fff8d0'; ctx.beginPath(); ctx.moveTo(S * 0.52, S * 0.5); ctx.lineTo(S * 0.44, S * 0.66); ctx.lineTo(S * 0.52, S * 0.66); ctx.lineTo(S * 0.47, S * 0.8); ctx.lineTo(S * 0.6, S * 0.6); ctx.lineTo(S * 0.52, S * 0.6); ctx.closePath(); ctx.fill(); }
+    } else if (id === ITEM.BUBBLE) {
+      ctx.strokeStyle = '#bff3ff'; ctx.lineWidth = S * 0.04; ctx.shadowColor = '#8fe7ff'; ctx.shadowBlur = S * 0.15;
+      [[0.5, 0.52, 0.26], [0.26, 0.26, 0.1], [0.78, 0.3, 0.08], [0.72, 0.82, 0.07]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x * S, y * S, r * S, 0, Math.PI * 2); ctx.stroke(); });
+      ctx.fillStyle = 'rgba(143,231,255,0.25)'; ctx.beginPath(); ctx.arc(S / 2, S * 0.52, S * 0.24, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.fillRect(S * 0.38, S * 0.4, S * 0.07, S * 0.07);
+    } else if (id === ITEM.WARD) {
+      ctx.translate(S / 2, S / 2); ctx.shadowColor = '#ffd76a'; ctx.shadowBlur = S * 0.2;
+      ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.moveTo(0, -S * 0.36); ctx.lineTo(S * 0.3, -S * 0.24); ctx.lineTo(S * 0.26, S * 0.12);
+      ctx.quadraticCurveTo(S * 0.14, S * 0.3, 0, S * 0.38); ctx.quadraticCurveTo(-S * 0.14, S * 0.3, -S * 0.26, S * 0.12); ctx.lineTo(-S * 0.3, -S * 0.24); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#9b6bff'; star(ctx, 0, 0, S * 0.15, S * 0.06); ctx.fill();
     } else if (id === ITEM.PEARL) {
       ctx.translate(S / 2, S / 2);
       ctx.shadowColor = '#b060ff'; ctx.shadowBlur = S * 0.25;
