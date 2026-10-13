@@ -59,13 +59,17 @@
       $('healthText').textContent = creative ? '∞' : Math.ceil(p.health) + '/' + p.maxHealth;
       $('magicText').textContent = creative ? '∞' : Math.floor(p.magic);
       $('clock').textContent = g.sky.clockString();
-      if (!this.biomeT || (this.biomeT -= dt) <= 0) { this.biomeT = 0.5; $('biome').textContent = g.world.biomeName(p.pos.x, p.pos.z); $('castleHint').textContent = MV.castleHint(g.world, p.pos); }
+      if (!this.biomeT || (this.biomeT -= dt) <= 0) { this.biomeT = 0.5; $('biome').textContent = g.world.biomeName(p.pos.x, p.pos.z); $('castleHint').textContent = [MV.castleHint(g.world, p.pos), MV.villageHint(g.world, p.pos)].filter(Boolean).join('  ·  '); }
       $('modeTag').textContent = creative ? '🏰 CREATIVE' : '⚔ SURVIVAL';
       $('modeTag').className = creative ? 'creative' : 'survival';
       const st = [];
       if (p.flying) st.push('<span>🕊 Flying</span>');
       if (p.glideMode) st.push(`<span class="${p.gliding ? 'on' : ''}">✦ Pixie Glide</span>`);
-      if (g.safeZone) st.push('<span class="safe">⛲ Wishing Well sanctuary</span>');
+      if (g.safeZone) st.push('<span class="safe">⛲ Sanctuary — safe from monsters</span>');
+      const fx = p.effects || {};
+      if (fx.speed > 0) st.push(`<span class="on">⚡ Swift ${Math.ceil(fx.speed)}s</span>`);
+      if (fx.breath > 0) st.push(`<span class="on">🫧 Bubble ${Math.ceil(fx.breath)}s</span>`);
+      if (fx.ward > 0) st.push(`<span class="on">🛡 Ward ${Math.ceil(fx.ward)}s</span>`);
       if (p.air < p.maxAir) st.push(`<span class="${p.air < 4 ? 'night' : 'on'}">🫧 Air ${'●'.repeat(Math.ceil(p.air / 2))}${'○'.repeat(Math.floor((p.maxAir - p.air) / 2))}</span>`);
       if (p.slowT > 0) st.push('<span class="night">🐌 Slowed</span>');
       if (g.sky.isNight) st.push('<span class="night">☾ Shadows roam</span>');

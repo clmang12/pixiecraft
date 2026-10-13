@@ -33,6 +33,7 @@
       this.ui = new MV.UI(this);
       this.net = MV.net = new MV.Net(this);
       this.wardrobe = new MV.Wardrobe(this); this.outfit = this.wardrobe.outfit; this.view = 0;
+      this.village = new MV.Village(this);
       if (this.touch) { this.noLock = true; this.touchUI = new MV.TouchControls(this); }   // phones & tablets
       this.keys = {};
       this.mouse = { left: false, right: false, lp: false, rp: false };
@@ -354,6 +355,21 @@
 
     useItem(slot, hit) {
       const p = this.player, id = slot.id;
+      const CONSUMABLE = {
+        [I.POTION_HEAL]: () => { p.health = p.maxHealth; return '❤ Healed to full health!'; },
+        [I.POTION_MAGIC]: () => { p.magic = p.maxMagic; return '✦ Magic fully restored!'; },
+        [I.ELIXIR_SPEED]: () => { p.effects.speed = 60; return '⚡ Swiftness! Run faster for 60 seconds'; },
+        [I.BUBBLE]: () => { p.effects.breath = 90; p.air = p.maxAir; return '🫧 Bubble Charm: breathe underwater for 90 seconds'; },
+        [I.WARD]: () => { p.effects.ward = 20; return '🛡 Fairy Ward: nothing can hurt you for 20 seconds'; },
+      };
+      if (CONSUMABLE[id]) {
+        this.ui.toast(CONSUMABLE[id]());
+        this.particles.burst(p.pos.x, p.pos.y + 1, p.pos.z, 40, 3, 1, MV.SPARKLE_COLORS);
+        this.sfx.chime();
+        if (this.mode === 'survival') this.inv.consumeSelected();
+        this.ui.refreshHotbar();
+        return;
+      }
       if (id === I.DUST) {
         p.magic = Math.min(p.maxMagic, p.magic + 40);
         p.glideMode = true;
@@ -440,6 +456,10 @@
       this.ui.setBreak(this.breakProg);
 
       if (m.rp || (m.right && this.repeatT <= 0)) {
+        // Right-click a fairy to talk or shop
+        // Reach over the shop counter, and look past pixie lights and critters, to talk to a fairy
+        const fairy = m.rp && this.mobs.raycast(o, d, reach, 'fairy');
+        if (fairy && (!hit || fairy.dist < hit.dist + 1.5)) { this.village.openShop(fairy.mob); m.lp = m.rp = false; m.right = false; return; }
         if (slot) { this.useItem(slot, hit); this.repeatT = 0.22; }
       }
       m.lp = m.rp = false;
@@ -590,6 +610,7 @@
           this.spells.update(dt);
           this.bosses.update(dt);
           this.fireworks.update(dt);
+          this.village.update(dt);
           this.updateZones(dt);
           this.particles.update(dt);
         }

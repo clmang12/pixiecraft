@@ -52,6 +52,7 @@
       this.fallTop = 0; this.inWater = false; this.headInWater = false;
       this.nearFriend = false; this.nearWell = false; this.magicWarn = 0; this.slowT = 0;
       this.maxAir = 12; this.air = 12; this.drownT = 0;
+      this.effects = { speed: 0, breath: 0, ward: 0 };   // seconds left on each fairy-shop boost
     }
 
     teleport(x, y, z) { this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.fallTop = y; }
@@ -80,6 +81,9 @@
     damage(n, from) {
       const g = this.game;
       if (g.mode === 'creative' || this.hurtCd > 0 || this.health <= 0) return;
+      if (this.effects.ward > 0) {   // Fairy Ward: hits just sparkle off
+        g.particles.burst(this.pos.x, this.pos.y + 1, this.pos.z, 14, 3, 0.5, [[1, 0.9, 0.5], [0.8, 0.6, 1]]); this.hurtCd = 0.3; return;
+      }
       this.health -= n; this.hurtCd = 0.6; this.sinceHurt = 0;
       if (from) {
         const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1;
@@ -93,6 +97,7 @@
       const g = this.game, k = g.keys, w = g.world, creative = g.mode === 'creative';
       const p = this.pos, v = this.vel;
       this.hurtCd = Math.max(0, this.hurtCd - dt); this.sinceHurt += dt; this.slowT = Math.max(0, this.slowT - dt); this.blindT = Math.max(0, (this.blindT || 0) - dt);
+      for (const k in this.effects) this.effects[k] = Math.max(0, this.effects[k] - dt);
       const slow = this.slowT > 0 ? 0.5 : 1;
 
       let fx = 0, fz = 0;
@@ -114,7 +119,7 @@
         v.y += (((space ? 1 : 0) - (shift ? 1 : 0)) * 9 - v.y) * a;
       } else {
         const glideActive = this.glideMode && !this.onGround && !this.inWater;
-        const speed = (this.inWater ? 3.2 : glideActive ? 8 : shift ? 7 : 4.6) * slow;
+        const speed = (this.inWater ? 3.2 : glideActive ? 8 : shift ? 7 : 4.6) * slow * (this.effects.speed > 0 ? 1.6 : 1);
         const a = 1 - Math.exp(-dt * (this.onGround ? 18 : glideActive ? 4 : 6));
         v.x += (wx * speed - v.x) * a; v.z += (wz * speed - v.z) * a;
         if (this.inWater) {
@@ -152,7 +157,7 @@
       }
 
       // Breath: hold it underwater, then start drowning (survival only)
-      if (this.headInWater && !creative) {
+      if (this.headInWater && !creative && !(this.effects.breath > 0)) {
         this.air = Math.max(0, this.air - dt);
         if (Math.random() < dt * 3) g.particles.glow.spawn(p.x, p.y + this.eye, p.z, 0, 1.5, 0, 0.7, 0.9, 1, 0.8, -1, 0);
         if (this.air <= 0 && (this.drownT -= dt) <= 0) { this.drownT = 1; this.hurtCd = 0; this.damage(2); if (this.health > 0 && !this.drownWarned) { this.drownWarned = true; g.ui.toast('🫧 You\'re drowning — swim up!', 'warn'); } }

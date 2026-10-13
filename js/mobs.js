@@ -141,7 +141,7 @@
       this.t = Math.random() * 10; this.ai = 0; this.flee = 0; this.wait = 0.5; this.cd = 0; this.flash = 0;
       this.phase = Math.random() * Math.PI * 2;
       this.onGround = false; this.hitWall = false; this.dead = false;
-      const m = T.build(); this.root = m.root; this.P = m.P;
+      const m = T.build(this); this.root = m.root; this.P = m.P;
       game.scene.add(this.root);
       this.sync();
     }
@@ -440,9 +440,10 @@
       for (let i = this.list.length - 1; i >= 0; i--) if (this.list[i].dead) { this.list[i].remove(); this.list.splice(i, 1); }
     }
 
-    raycast(o, d, max) {
+    raycast(o, d, max, only) {
       let best = null;
       for (const m of this.list) {
+        if (only && m.type !== only) continue;
         const min = [m.pos.x - m.w, m.pos.y, m.pos.z - m.w], mx = [m.pos.x + m.w, m.pos.y + m.h, m.pos.z + m.w];
         const oo = [o.x, o.y, o.z], dd = [d.x, d.y, d.z];
         let t0 = 0, t1 = max, ok = true;
