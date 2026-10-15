@@ -459,7 +459,10 @@
         // Right-click a fairy to talk or shop
         // Reach over the shop counter, and look past pixie lights and critters, to talk to a fairy
         const fairy = m.rp && this.mobs.raycast(o, d, reach, 'fairy');
-        if (fairy && (!hit || fairy.dist < hit.dist + 1.5)) { this.village.openShop(fairy.mob); m.lp = m.rp = false; m.right = false; return; }
+        const solidHit = hit && !BLOCKS[hit.id].cross ? hit : null;   // flowers and kelp don't get in the way
+        if (fairy && (!solidHit || fairy.dist < solidHit.dist + 1.5)) { this.village.openShop(fairy.mob); m.lp = m.rp = false; m.right = false; return; }
+        const pet = m.rp && this.mobs.raycast(o, d, 4.5, mob => mob.T.animal);   // pet a peaceful animal
+        if (pet && (!solidHit || pet.dist < solidHit.dist + 1)) { MV.petAnimal(this, pet.mob); m.lp = m.rp = false; m.right = false; return; }
         if (slot) { this.useItem(slot, hit); this.repeatT = 0.22; }
       }
       m.lp = m.rp = false;

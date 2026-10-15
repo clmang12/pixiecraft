@@ -46,6 +46,7 @@
     gunshot() { this.noise(0.18, 0.2, 2500); this.tone(140, 0.15, 'square', 0.05, -80); }
     chomp() { this.tone(220, 0.08, 'square', 0.05, -120); this.noise(0.06, 0.08, 1800); }
     bubble() { this.tone(500 + Math.random() * 300, 0.08, 'sine', 0.03, 400); }
+    chirp() { this.tone(1200, 0.08, 'sine', 0.035, 500); this.tone(1600, 0.1, 'sine', 0.03, 400, 0.1); }
     fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, i === 5 ? 0.9 : 0.18, 'square', 0.035, 0, i * 0.14)); }
   }
 
