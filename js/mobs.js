@@ -443,7 +443,7 @@
     raycast(o, d, max, only) {
       let best = null;
       for (const m of this.list) {
-        if (only && m.type !== only) continue;
+        if (only && (typeof only === 'function' ? !only(m) : m.type !== only)) continue;
         const min = [m.pos.x - m.w, m.pos.y, m.pos.z - m.w], mx = [m.pos.x + m.w, m.pos.y + m.h, m.pos.z + m.w];
         const oo = [o.x, o.y, o.z], dd = [d.x, d.y, d.z];
         let t0 = 0, t1 = max, ok = true;
